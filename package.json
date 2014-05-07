@@ -1,0 +1,28 @@
+{
+  "name": "recache",
+  "version": "0.1.0",
+  "description": "Node.js module that caches request calls and, optionally, re-requests and re-caches them before they expire",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tobius/recache.git"
+  },
+  "keywords": [
+    "request",
+    "cache",
+    "recache",
+    "memory"
+  ],
+  "author": "Toby Miller <tobius.miller@gmail.com> (https://github.com/tobius)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tobius/recache/issues"
+  },
+  "dependencies": {
+    "request": "~2.34.0",
+    "crypto": "0.0.3"
+  }
+}
