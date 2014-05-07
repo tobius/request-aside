@@ -150,6 +150,7 @@ var crypto = require('crypto'),
     };
 
     module.exports = function(req, callback, age, duration){
+        req = (typeof req === 'string') ? {url:req} : req;
         recache._request(req, callback, age, duration);
     };
 

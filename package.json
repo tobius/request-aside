@@ -1,7 +1,7 @@
 {
   "name": "recache",
   "version": "0.1.0",
-  "description": "Node.js module that caches request calls and, optionally, re-requests and re-caches them before they expire",
+  "description": "A Node.js module for caching (and recaching) Request responses",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
