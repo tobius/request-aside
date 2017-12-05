@@ -18,23 +18,34 @@ Install via NPM.
 ## Usage
 
 ```javascript
+// import
 var request = require('request-aside');
 
 // request
-request(url);
+request(url, cb);
 
 // request and cache
 request({
 	method: 'GET',
 	url: url,
 	cache: 60 * 60 * 1000 // cache for 1 hour
-});
+}, cb);
 
 // request and renew (overrides `cache` param if present)
 request({
 	method: 'GET',
 	url: url,
 	renew: 60 * 60 * 1000 // renew every 1 hour
+}, cb);
+
+// request and cache (or renew) using Redis instead of memory
+var redisClient = redis.createClient(redisPort, redisHostname);
+redisClient.auth(redisAuth);
+request({
+	method: 'GET',
+	url: url,
+	cache: 60 * 60 * 1000, // cache for 1 hour
+	redis: redisClient
 });
 ```
 
