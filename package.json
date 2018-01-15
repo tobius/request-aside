@@ -1,28 +1,36 @@
 {
-  "name": "recache",
-  "version": "0.1.0",
-  "description": "A Node.js module for caching (and recaching) Request responses",
+  "name": "request-aside",
+  "version": "0.2.0",
+  "description": "Apply the cache-aside pattern to the request module",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "./node_modules/mocha/bin/mocha './{,!(node_modules)/**/}*.test.js'"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/tobius/recache.git"
+    "url": "https://github.com/tobius/request-aside.git"
   },
   "keywords": [
-    "request",
     "cache",
-    "recache",
-    "memory"
+    "cache-aside",
+    "redis",
+    "request"
   ],
   "author": "Toby Miller <tobius.miller@gmail.com> (https://github.com/tobius)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/tobius/recache/issues"
+    "url": "https://github.com/tobius/request-aside/issues"
   },
   "dependencies": {
-    "request": "~2.34.0",
-    "crypto": "0.0.3"
+    "lodash": "^4.17.4",
+    "md5": "^2.2.1",
+    "q": "^1.5.1",
+    "request": "^2.83.0"
+  },
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^4.1.0",
+    "redis": "^2.8.0",
+    "uuid": "^3.1.0"
   }
 }

@@ -1,158 +1,112 @@
 
-var crypto = require('crypto'),
-    request = require('request');
+// import
+const
+	_ = require('lodash'),
+	md5 = require('md5'),
+	q = require('q'),
+	request = require('request');
 
-(function(){
+// in-memory storage
+let requestAsideMemory = {};
 
-    'use strict';
+/**
+ * request module proxy
+ *
+ * additionally supported properties:
+ * - cache: number of milliseconds to cache response for followup requests
+ * - redis: redist client to write cache responses to (instead of memory)
+ *
+ * @param {Mixed} uri or options (custom params only work with options)
+ * @param {Function} [callback(err, res, body)]
+ * @return {Promise}
+ */
+module.exports = (options, callback = () => {}) => {
 
-    var root = this;
+	let deferred = q.defer();
 
-    var recache = root.recache = {
+	// convert uri to options format
+	if (_.isString(options)) {
+		options = {
+			uri: options
+		};
+	}
 
-        /**
-         * cached responses
-         * @var {Object}
-         */
-        _responses: {},
+	// fix common mis-spelling
+	if (options.url) {
+		options.uri = options.url;
+		delete options.url;
+	}
 
-        /**
-         * generate a unique hash
-         * 
-         * @param {String} salt
-         * @return {String}
-         */
-        _generateUniqueHash: function(salt){
-            return crypto.createHash('md5').update(salt).digest('hex');
-        },
+	// record identity
+	let cacheableOptions = _.clone(options);
+	delete cacheableOptions.cache;
+	delete cacheableOptions.redis;
+	const requestAsideId = md5(JSON.stringify(cacheableOptions));
+	options.requestAsideId = requestAsideId;
 
-        /**
-         * request a uri and time it
-         *
-         * @param {Object} req
-         * @param {Function} callback(err, res, body, ms)
-         */
-        _timedRequest: function(req, callback){
-            var start, stop;
-            start = process.hrtime();
-            request(req, function(err, res, body){
-                stop = process.hrtime(start);
-                callback(err, res, body, (stop[0] + (stop[1] / 1e9)) / 1000);
-            });
-        },
+	// record cache time
+	if (options.cache && _.isNumber(options.cache)) {
+		options.requestAsideCache = parseInt(options.cache, 10);
+		delete options.cache;
+	}
 
-        /**
-         * recache a tracked response
-         *
-         * @param {String} id
-         */
-        _recache: function(id){
-            if (recache._responses[id] !== undefined){
-                recache._timedRequest(recache._responses[id].req, function(err, res, body, ms){
-                    recache._responses[id].err = err;
-                    recache._responses[id].res = res;
-                    recache._responses[id].body = body;
-                    recache._responses[id].ms = ms;
-                    recache._responses[id].recache = setTimeout(function(){ recache._recache(id); }, recache._responses[id].age - ms);
-                });
-            }
-        },
+	// record redis client
+	if (options.requestAsideId && options.redis && _.isObject(options.redis)) {
+		options.requestAsideRedis = options.redis;
+		delete options.redis;
 
-        /**
-         * expire a tracked response
-         *
-         * @param {String} id
-         */
-        _expire: function(id){
-            if (recache._responses[id] !== undefined){
-                clearTimeout(recache._responses[id].recache);
-                clearTimeout(recache._responses[id].expire);
-                delete recache._responses[id];
-            }
-        },
+		// retrieve from redis (if applicable)
+		if (options.requestAsideReds) {
+			// @todo
+			console.warn('redis is not yet implemented');
+		}
+	}
 
-        /**
-         * request a uri and cache/recache as needed
-         *
-         * @param {Object} req
-         * @param {Function} callback(err, res, body, cached)
-         * @param {Integer} [age] (default=0ms)
-         * @param {Integer} [duration] (default=0ms)
-         */
-        _request: function(req, callback, age, duration){
+	// retrieve from memory (if applicable)
+	if (options.requestAsideId) {
+		const result = requestAsideMemory[options.requestAsideId];
+		if (result) {
+			callback(result.err, result.res, result.body);
+			deferred.resolve(result.body);
+			return;
+		}
+	}
 
-            var id, cached = false, response;
+	// perform request
+	// console.log('request options', options);
+	request(options, (err, res, body) => {
+		if (!err && res.statusCode === 200) {
+			if (options.requestAsideId) {
+				if (options.requestAsideRedis) {
+					// store in redis
+					console.warn('redis is not yet implemented');
+				} else if (options.requestAsideCache) {
+					// store in memory
+					// console.log('stored', options.requestAsideId, options.requestAsideCache, options.uri);
+					requestAsideMemory[options.requestAsideId] = {
+						requestAsideId: options.requestAsideId,
+						requestAsideCache: options.requestAsideCache,
+						err: err,
+						res: res,
+						body: body
+					};
 
-            // ensure optional param values
-            age      = age || 0;
-            duration = duration || 0;
+					// self expire
+					setTimeout(() => {
+						delete requestAsideMemory[options.requestAsideId];
+						// console.log('deleted', options.requestAsideId, options.requestAsideCache, options.uri);
+					}, options.requestAsideCache);
+				} else {
+					// console.log('no cache', options.requestAsideId, options.requestAsideCache, options.uri);
+				}
+			}
+			deferred.resolve(body);
+		} else {
+			deferred.reject(err || new Error(`Invalid status code: ${res.statusCode}`));
+		}
+		callback(err, res, body);
+	});
 
-            // request identifier
-            id = recache._generateUniqueHash(JSON.stringify(req));
-
-            if (recache._responses[id] !== undefined){
-
-                // from cache
-                response = recache._responses[id];
-                callback(response.err, response.res, response.body);
-
-            } else {
-
-                // from web
-                recache._timedRequest(req, function(err, res, body, ms){
-
-                    // only cache successes
-                    if (!err && res && res.statusCode === 200 && body && ms){
-
-                        // build response object
-                        response = {
-                            id       : id,
-                            err      : err,
-                            res      : res,
-                            body     : body,
-                            ms       : ms,
-                            age      : age,
-                            duration : duration,
-                            recache  : null,
-                            expire   : null
-                        };
-
-                        if (age > 0){
-
-                            // recache in {age} milliseconds
-                            response.recache = setTimeout(function(){ recache._recache(id); }, age - ms);
-
-                            if (duration > age && duration > 0){
-
-                                // expire in {duration} milliseconds
-                                response._recache = setTimeout(function(){ recache._expire(id); }, duration);
-
-                            }
-
-                        }
-
-                        // cache it
-                        recache._responses[id] = response;
-                        cached = true;
-
-                    }
-
-                    // pass through
-                    callback(err, res, body, cached);
-                    return;
-
-                });
-
-            }
-
-        }
-
-    };
-
-    module.exports = function(req, callback, age, duration){
-        req = (typeof req === 'string') ? {url:req} : req;
-        recache._request(req, callback, age, duration);
-    };
-
-}).call(this);
+	return deferred.promise;
+};
 

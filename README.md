@@ -1,15 +1,11 @@
 
 # request-aside
 
-__NOTE: ONLY RECENLTY REVIVED, NOT READY FOR USE YET__
+__NOTE: REDIS SUPPORT IS IN PROGRESS__
 
-A Node.js module that makes request calls, caches them, and queues them for renewal.
-
-_Note: This module extends [`request`](https://www.npmjs.com/package/request)._
+Apply the `cache-aside` pattern to the [`request`](https://www.npmjs.com/package/request) module _(e.g. add cache support)_.
 
 ## Install
-
-Install via NPM.
 
 ```bash
 [~] npm install request-aside
@@ -17,36 +13,18 @@ Install via NPM.
 
 ## Usage
 
-__Request (without cache)__
-
-```javascript
-var request = require('request-aside');
-request(url, cb);
-```
-
-__Request and cache__
+__cache support__
 
 ```javascript
 var request = require('request-aside');
 request({
 	method: 'GET',
 	url: url,
-	cache: 60 * 60 * 1000 // cache for 1 hour
+	cache: 60 * 60 * 1000 // cache for 1 hour (ms)
 }, cb);
 ```
 
-__Request and renew (overrides `cache`)__
-
-```javascript
-var request = require('request-aside');
-request({
-	method: 'GET',
-	url: url,
-	renew: 60 * 60 * 1000 // renew every 1 hour
-}, cb);
-```
-
-__Request and cache (or renew) in Redis instead of memory__
+__redis storage__
 
 ```javascript
 var request = require('request-aside');
@@ -56,7 +34,7 @@ request({
 	url: url,
 	cache: 60 * 60 * 1000, // cache for 1 hour
 	redis: client
-});
+}, cb);
 ```
 
 ## License
