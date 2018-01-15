@@ -14,7 +14,7 @@ let requestAsideMemory = {};
  *
  * additionally supported properties:
  * - cache: number of milliseconds to cache response for followup requests
- * - redis: redist client to write cache responses to (instead of memory)
+ * - redis: redis client to write cache responses to (instead of memory)
  *
  * @param {Mixed} uri or options (custom params only work with options)
  * @param {Function} [callback(err, res, body)]
@@ -41,7 +41,7 @@ module.exports = (options, callback = () => {}) => {
 	let cacheableOptions = _.clone(options);
 	delete cacheableOptions.cache;
 	delete cacheableOptions.redis;
-	const requestAsideId = md5(JSON.stringify(cacheableOptions));
+	const requestAsideId = `request-aside/${md5(JSON.stringify(cacheableOptions))}`;
 	options.requestAsideId = requestAsideId;
 
 	// record cache time
@@ -57,8 +57,25 @@ module.exports = (options, callback = () => {}) => {
 
 		// retrieve from redis (if applicable)
 		if (options.requestAsideReds) {
-			// @todo
-			console.warn('redis is not yet implemented');
+			options.requestAsideRedis.get(options.requestAsideId, (err, obj) => {
+				if (err) {
+					deferred.reject(err);
+					callback(err);
+					return deferred.promise;
+				}
+				if (obj) {
+					obj = JSON.parse(obj);
+					if (!obj.body) {
+						err = new Error('Failed to parse stored request');
+						deferred.reject(err);
+						callback(err);
+					} else {
+						deferred.resolve(obj.body);
+						callback(null, obj.body);
+					}
+					return deferred.promise;
+				}
+			});
 		}
 	}
 
@@ -68,36 +85,34 @@ module.exports = (options, callback = () => {}) => {
 		if (result) {
 			callback(result.err, result.res, result.body);
 			deferred.resolve(result.body);
-			return;
+			return deferred.promise;
 		}
 	}
 
 	// perform request
-	// console.log('request options', options);
 	request(options, (err, res, body) => {
 		if (!err && res.statusCode === 200) {
 			if (options.requestAsideId) {
+				const requestAsideObject = {
+					requestAsideId: options.requestAsideId,
+					requestAsideCache: options.requestAsideCache,
+					err: err,
+					res: res,
+					body: body
+				};
 				if (options.requestAsideRedis) {
 					// store in redis
-					console.warn('redis is not yet implemented');
+					// console.warn('redis is not yet implemented');
+					const requestAsideString = JSON.stringify(requestAsideObject);
+					options.requestAsideRedis.set(options.requestAsideId, requestAsideString, 'PX', options.requestAsideCache);
 				} else if (options.requestAsideCache) {
 					// store in memory
-					// console.log('stored', options.requestAsideId, options.requestAsideCache, options.uri);
-					requestAsideMemory[options.requestAsideId] = {
-						requestAsideId: options.requestAsideId,
-						requestAsideCache: options.requestAsideCache,
-						err: err,
-						res: res,
-						body: body
-					};
+					requestAsideMemory[options.requestAsideId] = requestAsideObject;
 
 					// self expire
 					setTimeout(() => {
 						delete requestAsideMemory[options.requestAsideId];
-						// console.log('deleted', options.requestAsideId, options.requestAsideCache, options.uri);
 					}, options.requestAsideCache);
-				} else {
-					// console.log('no cache', options.requestAsideId, options.requestAsideCache, options.uri);
 				}
 			}
 			deferred.resolve(body);

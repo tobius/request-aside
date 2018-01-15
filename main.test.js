@@ -49,7 +49,7 @@ describe('main', () => {
 	});
 
 	after(() => {
-		// process.exit();
+		process.exit();
 	});
 
 	it('should proxy url param', (done) => {
@@ -91,7 +91,8 @@ describe('main', () => {
 			setTimeout(() => {
 				request({
 					method: 'GET',
-					url: testUrl
+					url: testUrl,
+					cache: 5000
 				}, (err, res, body) => {
 					expect(err).to.be.null;
 					expect(res.statusCode).to.equal(200);
@@ -121,7 +122,8 @@ describe('main', () => {
 		setTimeout(() => {
 			request({
 				method: 'GET',
-				url: testUrl
+				url: testUrl,
+				cache: 2000
 			}, (err, res, body) => {
 				expect(err).to.be.null;
 				expect(res.statusCode).to.equal(200);
@@ -132,7 +134,7 @@ describe('main', () => {
 		}, 3000);
 	});
 
-	xit('should store results in redis', (done) => {
+	it('should store results in redis', (done) => {
 		let time;
 		const testUrl = `${url}?randomId=${uuid()}`;
 		request({
@@ -147,7 +149,9 @@ describe('main', () => {
 			expect(time).to.match(reTime);
 			request({
 				method: 'GET',
-				url: testUrl
+				url: testUrl,
+				cache: 5000,
+				redis: redisClient
 			}, (err, res, body) => {
 				expect(err).to.be.null;
 				expect(res.statusCode).to.equal(200);
@@ -158,13 +162,15 @@ describe('main', () => {
 		});
 	});
 
-	xit('should expire results stored in redis', (done) => {
+	it('should expire results stored in redis', function(done) {
+		this.timeout(5000);
 		let time;
 		const testUrl = `${url}?randomId=${uuid()}`;
 		request({
 			method: 'GET',
 			url: testUrl,
-			cache: 5000
+			cache: 2000,
+			redis: redisClient
 		}, (err, res, body) => {
 			expect(err).to.be.null;
 			expect(res.statusCode).to.equal(200);
@@ -174,7 +180,9 @@ describe('main', () => {
 		setTimeout(() => {
 			request({
 				method: 'GET',
-				url: testUrl
+				url: testUrl,
+				cache: 2000,
+				redis: redisClient
 			}, (err, res, body) => {
 				expect(err).to.be.null;
 				expect(res.statusCode).to.equal(200);
@@ -182,7 +190,7 @@ describe('main', () => {
 				expect(time).to.not.equal(time2);
 				done();
 			});
-		}, 6000);
+		}, 3000);
 	});
 
 	it('should support promises', (done) => {
@@ -195,6 +203,59 @@ describe('main', () => {
 		}).catch((err) => {
 			expect(err).to.be.undefined;
 		}).finally(done);
+	});
+
+	it('should retrieve cached memory results on repeat requests', function(done) {
+		this.timeout(10000);
+		const testUrl = `${url}?randomId=${uuid()}`;
+		let i = 0;
+		const repeat = (i, j) => {
+			if (i < j) {
+				i++;
+				request({
+					method: 'GET',
+					url: testUrl,
+					cache: 10000
+				}).then((body) => {
+					expect(body).to.not.be.undefined;
+					repeat(i, j);
+				}).catch((err) => {
+					expect(err).to.be.undefined;
+					repeat(j, j);
+				});
+			} else {
+				expect(i).to.equal(j);
+				done();
+			}
+		};
+		repeat(i, 10);
+	});
+
+	it('should retrieve cached redis results on repeat requests', function(done) {
+		this.timeout(10000);
+		const testUrl = `${url}?randomId=${uuid()}`;
+		let i = 0;
+		const repeat = (i, j) => {
+			if (i < j) {
+				i++;
+				request({
+					method: 'GET',
+					url: testUrl,
+					cache: 10000,
+					redis: redisClient
+				}).then((body) => {
+					expect(body).to.not.be.undefined;
+					repeat(i, j);
+				}).catch((err) => {
+					expect(err).to.be.undefined;
+					repeat(j, j);
+				});
+			} else {
+				expect(i).to.equal(j);
+				done();
+			}
+		};
+		repeat(i, 10);
 	});
 
 });
