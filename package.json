@@ -1,6 +1,6 @@
 {
   "name": "request-aside",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Apply the cache-aside pattern to the request module",
   "main": "main.js",
   "scripts": {
