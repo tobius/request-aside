@@ -2,13 +2,19 @@
 // import
 const
 	chai = require('chai'),
-	expect = chai.expect,
 	redis = require('redis'),
 	request = require('./main.js'),
 	uuid = require('uuid/v1');
 
 // init
-chai.should();
+chai.config.includeStack = true;
+chai.config.showDiff = true;
+
+// assert
+const
+	expect = chai.expect,
+	should = chai.should();
+
 
 /**
  * extract printed time from `whattimeisit.com` body response
@@ -49,7 +55,7 @@ describe('main', () => {
 	});
 
 	after(() => {
-		process.exit();
+		setTimeout(process.exit, 1000);
 	});
 
 	it('should proxy url param', (done) => {
@@ -89,7 +95,7 @@ describe('main', () => {
 			time = extractTime(body);
 			expect(time).to.match(reTime);
 			expect(res.headers['X-Request-Aside-Id']).to.not.be.undefined;
-			expect(res.headers['X-Request-Aside-Source']).to.equal('memory');
+			expect(res.headers['X-Request-Aside-Source']).to.equal('internet');
 			setTimeout(() => {
 				request({
 					method: 'GET',
@@ -152,7 +158,7 @@ describe('main', () => {
 			time = extractTime(body);
 			expect(time).to.match(reTime);
 			expect(res.headers['X-Request-Aside-Id']).to.not.be.undefined;
-			expect(res.headers['X-Request-Aside-Source']).to.equal('redis');
+			expect(res.headers['X-Request-Aside-Source']).to.equal('internet');
 			request({
 				method: 'GET',
 				url: testUrl,

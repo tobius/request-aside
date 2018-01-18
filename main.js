@@ -51,48 +51,16 @@ module.exports = (options, callback = () => {}) => {
 	}
 
 	// record redis client
-	if (options.requestAsideId && options.redis && _.isObject(options.redis)) {
+	if (options.redis && _.isObject(options.redis)) {
 		options.requestAsideRedis = options.redis;
 		delete options.redis;
-
-		// retrieve from redis (if applicable)
-		if (options.requestAsideReds) {
-			options.requestAsideRedis.get(options.requestAsideId, (err, obj) => {
-				if (err) {
-					deferred.reject(err);
-					callback(err);
-					return deferred.promise;
-				}
-				if (obj) {
-					obj = JSON.parse(obj);
-					if (!obj.body) {
-						err = new Error('Failed to parse stored request');
-						deferred.reject(err);
-						callback(err);
-					} else {
-						deferred.resolve(obj.body);
-						callback(null, obj.body);
-					}
-					return deferred.promise;
-				}
-			});
-		}
 	}
 
-	// retrieve from memory (if applicable)
-	if (options.requestAsideId) {
-		const result = requestAsideMemory[options.requestAsideId];
-		if (result) {
-			callback(result.err, result.res, result.body);
-			deferred.resolve(result.body);
-			return deferred.promise;
-		}
-	}
+	const fetch = (options) => {
 
-	// perform request
-	request(options, (err, res, body) => {
-		if (!err && res.statusCode === 200) {
-			if (options.requestAsideId) {
+		// perform request
+		request(options, (err, res, body) => {
+			if (!err && res.statusCode === 200) {
 
 				const requestAsideObject = {
 					requestAsideId: options.requestAsideId,
@@ -102,31 +70,77 @@ module.exports = (options, callback = () => {}) => {
 					body: body
 				};
 				res.headers['X-Request-Aside-Id'] = options.requestAsideId;
+				res.headers['X-Request-Aside-Source'] = 'internet';
 
 				if (options.requestAsideRedis) {
 
 					// store in redis and self expire
 					const requestAsideString = JSON.stringify(requestAsideObject);
 					options.requestAsideRedis.set(options.requestAsideId, requestAsideString, 'PX', options.requestAsideCache);
-					res.headers['X-Request-Aside-Source'] = 'redis';
 
 				} else if (options.requestAsideCache) {
 
 					// store in memory and self expire
-					requestAsideMemory[options.requestAsideId] = requestAsideObject;
+					requestAsideMemory[options.requestAsideId] = _.clone(requestAsideObject);
 					setTimeout(() => {
 						delete requestAsideMemory[options.requestAsideId];
 					}, options.requestAsideCache);
-					res.headers['X-Request-Aside-Source'] = 'memory';
 
 				}
+				deferred.resolve(body);
+			} else {
+				err = err || new Error(`Invalid status code: ${res.statusCode}`);
+				deferred.reject(err);
 			}
-			deferred.resolve(body);
+			callback(err, res, body);
+		});
+
+	};
+
+	if (options.requestAsideRedis) {
+
+		// retrieve from redis
+		options.requestAsideRedis.get(options.requestAsideId, (err, obj) => {
+			if (err) {
+				deferred.reject(err);
+				callback(err);
+				return deferred.promise;
+			}
+			if (obj) {
+				obj = JSON.parse(obj);
+				if (!obj.body) {
+					err = new Error('Failed to parse stored request');
+					deferred.reject(err);
+					callback(err);
+				} else {
+					obj.res.headers['X-Request-Aside-Source'] = 'redis';
+					deferred.resolve(obj.body);
+					callback(null, obj.res, obj.body);
+				}
+				return deferred.promise;
+			} else {
+				fetch(options);
+			}
+		});
+
+	} else if (options.requestAsideCache) {
+
+		// retrieve from memory
+		const result = requestAsideMemory[options.requestAsideId];
+		if (result) {
+			result.res.headers['X-Request-Aside-Source'] = 'memory';
+			callback(result.err, result.res, result.body);
+			deferred.resolve(result.body);
+			return deferred.promise;
 		} else {
-			deferred.reject(err || new Error(`Invalid status code: ${res.statusCode}`));
+			fetch(options);
 		}
-		callback(err, res, body);
-	});
+
+	} else {
+
+		// retrieve from internet
+		fetch(options);
+	}
 
 	return deferred.promise;
 };
