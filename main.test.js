@@ -88,6 +88,8 @@ describe('main', () => {
 			expect(res.statusCode).to.equal(200);
 			time = extractTime(body);
 			expect(time).to.match(reTime);
+			expect(res.headers['X-Request-Aside-Id']).to.not.be.undefined;
+			expect(res.headers['X-Request-Aside-Source']).to.equal('memory');
 			setTimeout(() => {
 				request({
 					method: 'GET',
@@ -99,6 +101,8 @@ describe('main', () => {
 					const time2 = extractTime(body);
 					expect(time2).to.match(reTime);
 					expect(time).to.equal(time2);
+					expect(res.headers['X-Request-Aside-Id']).to.not.be.undefined;
+					expect(res.headers['X-Request-Aside-Source']).to.equal('memory');
 					done();
 				});
 			}, 1500);
@@ -147,6 +151,8 @@ describe('main', () => {
 			expect(res.statusCode).to.equal(200);
 			time = extractTime(body);
 			expect(time).to.match(reTime);
+			expect(res.headers['X-Request-Aside-Id']).to.not.be.undefined;
+			expect(res.headers['X-Request-Aside-Source']).to.equal('redis');
 			request({
 				method: 'GET',
 				url: testUrl,
@@ -157,6 +163,8 @@ describe('main', () => {
 				expect(res.statusCode).to.equal(200);
 				const time2 = extractTime(body);
 				expect(time).to.equal(time2);
+				expect(res.headers['X-Request-Aside-Id']).to.not.be.undefined;
+				expect(res.headers['X-Request-Aside-Source']).to.equal('redis');
 				done();
 			});
 		});

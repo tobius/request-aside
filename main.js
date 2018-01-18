@@ -93,6 +93,7 @@ module.exports = (options, callback = () => {}) => {
 	request(options, (err, res, body) => {
 		if (!err && res.statusCode === 200) {
 			if (options.requestAsideId) {
+
 				const requestAsideObject = {
 					requestAsideId: options.requestAsideId,
 					requestAsideCache: options.requestAsideCache,
@@ -100,19 +101,24 @@ module.exports = (options, callback = () => {}) => {
 					res: res,
 					body: body
 				};
+				res.headers['X-Request-Aside-Id'] = options.requestAsideId;
+
 				if (options.requestAsideRedis) {
-					// store in redis
-					// console.warn('redis is not yet implemented');
+
+					// store in redis and self expire
 					const requestAsideString = JSON.stringify(requestAsideObject);
 					options.requestAsideRedis.set(options.requestAsideId, requestAsideString, 'PX', options.requestAsideCache);
-				} else if (options.requestAsideCache) {
-					// store in memory
-					requestAsideMemory[options.requestAsideId] = requestAsideObject;
+					res.headers['X-Request-Aside-Source'] = 'redis';
 
-					// self expire
+				} else if (options.requestAsideCache) {
+
+					// store in memory and self expire
+					requestAsideMemory[options.requestAsideId] = requestAsideObject;
 					setTimeout(() => {
 						delete requestAsideMemory[options.requestAsideId];
 					}, options.requestAsideCache);
+					res.headers['X-Request-Aside-Source'] = 'memory';
+
 				}
 			}
 			deferred.resolve(body);
